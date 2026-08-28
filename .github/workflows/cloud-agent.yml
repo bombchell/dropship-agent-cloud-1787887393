@@ -6,6 +6,8 @@ on:
 jobs:
   run-agent:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - name: Fetch AI Product & Generate Copy
@@ -13,21 +15,26 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python -c "
-          import json, os, requests
+          import json, os, re, requests
 
-          prompt = \"Generate a single viral dropshipping product entry in JSON format with title, price, description, and supplier_url.\"
+          prompt = \"Return ONLY a raw JSON array containing 1 dropshipping product object with keys: title, price, description, supplier_url. Do not use markdown syntax, code fences, or intro text.\"
 
           headers = {\"Authorization\": \"Bearer \" + os.environ[\"GITHUB_TOKEN\"], \"Content-Type\": \"application/json\"}
           payload = {\"messages\": [{\"role\": \"user\", \"content\": prompt}], \"model\": \"gpt-4o\"}
 
+          fallback = [{\"title\": \"Minimalist Desk Lamp\", \"price\": 29.99, \"description\": \"Sleek LED desk lighting with touch controls.\", \"supplier_url\": \"https://example.com\"}]
+
           try:
               res = requests.post(\"https://models.inference.ai.azure.com/chat/completions\", headers=headers, json=payload, timeout=15)
-              content = res.json()[\"choices\"][0][\"message\"][\"content\"]
+              raw = res.json()[\"choices\"][0][\"message\"][\"content\"].strip()
+              clean = re.sub(r\"^```json\s*|```$\", \"\", raw, flags=re.MULTILINE).strip()
+              data = json.loads(clean)
+              if not isinstance(data, list): data = [data]
           except Exception as e:
-              content = json.dumps([{\"id\": \"fallback-1\", \"title\": \"Minimalist Desk Lamp\", \"price\": 29.99, \"description\": \"Sleek LED desk lighting.\"}])
+              data = fallback
 
           with open(\"products.json\", \"w\") as f:
-              f.write(content)
+              json.dump(data, f, indent=2)
           "
       - name: Commit Updated Catalog
         run: |
@@ -35,3 +42,4 @@ jobs:
           git config --global user.email "bot@users.noreply.github.com"
           git add products.json
           git diff --quiet || (git commit -m "Cloud AI catalog update [skip ci]" && git push)
+
