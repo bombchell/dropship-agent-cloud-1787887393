@@ -15,12 +15,25 @@
     <h1>Featured Products</h1>
     <div id="catalog" class="grid">Loading catalog from cloud...</div>
     <script>
-        fetch("products.json")
-            .then(r => r.json())
-            .then(data => {
+        fetch("products.json?v=" + Date.now())
+            .then(r => r.text())
+            .then(text => {
+                // Strip markdown code blocks if present in AI output
+                const cleanText = text.replace(/```json/g, "").replace(/```/g, "").trim();
+                let data = JSON.parse(cleanText);
+                if (!Array.isArray(data)) data = [data];
+                
                 const el = document.getElementById("catalog");
-                el.innerHTML = data.map(p => `<div class="card"><h3>${p.title}</h3><p>${p.description}</p><p class="price">$${p.price}</p></div>`).join("");
-            }).catch(() => { document.getElementById("catalog").innerHTML = "<p>Catalog updating...</p>"; });
+                el.innerHTML = data.map(p => `
+                    <div class="card">
+                        <h3>${p.title || "Featured Product"}</h3>
+                        <p>${p.description || ""}</p>
+                        <p class="price">$${p.price || "0.00"}</p>
+                    </div>
+                `).join("");
+            }).catch(err => { 
+                document.getElementById("catalog").innerHTML = "<p>Catalog updating...</p>"; 
+            });
     </script>
 </body>
 </html>
