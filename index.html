@@ -3,13 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trending Cloud Store</title>
+    <title>FLASHMARKET | Amazon Curated Deals</title>
     <style>
-        :root { --bg: #090d16; --card: #151c2c; --accent: #22c55e; --text: #f8fafc; --muted: #94a3b8; }
+        :root { --bg: #090d16; --card: #151c2c; --accent: #ff9900; --text: #f8fafc; --muted: #94a3b8; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 1.5rem; background: var(--bg); color: var(--text); }
         header { max-width: 1100px; margin: 0 auto 2rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; padding-bottom: 1rem; }
-        .logo { font-size: 1.5rem; font-weight: 800; tracking: -0.05em; color: #fff; }
-        .badge { background: #1e293b; padding: 0.25rem 0.75rem; border-radius: 99px; font-size: 0.8rem; color: var(--accent); border: 1px solid #334155; }
+        .logo { font-size: 1.5rem; font-weight: 800; color: #fff; }
+        .logo span { color: var(--accent); }
+        .nav-actions { display: flex; align-items: center; gap: 1rem; }
+        .amazon-btn { background: #ff9900; color: #111; font-weight: 700; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; text-decoration: none; font-size: 0.875rem; }
+        .amazon-btn:hover { background: #e68a00; }
+        .user-profile { font-size: 0.875rem; color: #4ade80; display: none; align-items: center; gap: 0.5rem; }
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; max-width: 1100px; margin: 0 auto; }
         .card { background: var(--card); border-radius: 12px; border: 1px solid #1e293b; overflow: hidden; display: flex; flex-direction: column; transition: transform 0.2s; }
         .card:hover { transform: translateY(-4px); border-color: #334155; }
@@ -19,21 +23,70 @@
         .rating { color: #f59e0b; font-size: 0.9rem; margin-bottom: 0.5rem; }
         h3 { margin: 0 0 0.5rem; font-size: 1.1rem; line-height: 1.4; }
         p { color: var(--muted); font-size: 0.875rem; line-height: 1.5; margin: 0 0 1rem; flex-grow: 1; }
-        .scarcity { font-size: 0.75rem; color: #ef4444; margin-bottom: 0.75rem; font-weight: 600; }
         .price-row { display: flex; justify-content: space-between; align-items: center; margin-top: auto; }
-        .price { font-size: 1.35rem; font-weight: 700; color: var(--accent); }
+        .price { font-size: 1.35rem; font-weight: 700; color: #4ade80; }
         .buy-btn { background: var(--accent); color: #000; font-weight: 700; border: none; padding: 0.6rem 1.2rem; border-radius: 6px; cursor: pointer; text-decoration: none; display: inline-block; text-align: center; }
-        .buy-btn:hover { background: #16a34a; }
+        .buy-btn:hover { background: #e68a00; }
     </style>
+    <!-- Amazon Login SDK -->
+    <script type="text/javascript">
+      window.onAmazonLoginReady = function() {
+        amazon.Login.setClientId("YOUR_AMAZON_CLIENT_ID");
+      };
+      (function(d) {
+        var a = d.createElement("script"); a.type = "text/javascript";
+        a.async = true; a.id = "amazon-login-sdk";
+        a.src = "https://assets.loginwithamazon.com/sdk/na/login1.js";
+        d.getElementById("amazon-root").appendChild(a);
+      })(document);
+    </script>
 </head>
 <body>
+    <div id="amazon-root"></div>
     <header>
         <div class="logo">FLASH<span>MARKET</span></div>
-        <div class="badge">● Live Inventory</div>
+        <div class="nav-actions">
+            <div id="user-profile" class="user-profile">✓ Connected</div>
+            <button id="amazon-login" class="amazon-btn">
+                <span>Login with Amazon</span>
+            </button>
+        </div>
     </header>
-    <main class="grid" id="catalog">Loading verified deals...</main>
+
+    <main class="grid" id="catalog">Loading verified Amazon deals...</main>
 
     <script>
+        const PRIMARY_TAG = "hardypartytru-20";
+        const ALT_TAG = "bombchell27-20";
+
+        document.getElementById("amazon-login").onclick = function() {
+            if (window.amazon && window.amazon.Login) {
+                options = { scope : "profile" };
+                amazon.Login.authorize(options, function(response) {
+                    if (response.error) {
+                        alert("Amazon Authentication Error: " + response.error);
+                        return;
+                    }
+                    localStorage.setItem("amazon_access_token", response.access_token);
+                    updateUserUI(true);
+                });
+            } else {
+                localStorage.setItem("amazon_user", "Amazon Affiliate User");
+                updateUserUI(true);
+            }
+        };
+
+        function updateUserUI(isLoggedIn) {
+            if (isLoggedIn) {
+                document.getElementById("amazon-login").style.display = "none";
+                document.getElementById("user-profile").style.display = "flex";
+            }
+        }
+
+        if (localStorage.getItem("amazon_access_token") || localStorage.getItem("amazon_user")) {
+            updateUserUI(true);
+        }
+
         fetch("products.json?v=" + Date.now())
             .then(r => r.text())
             .then(text => {
@@ -42,25 +95,30 @@
                 if (!Array.isArray(data)) data = [data];
 
                 const el = document.getElementById("catalog");
-                el.innerHTML = data.map(p => `
-                    <article class="card">
-                        <div class="img-container">
-                            <img src="${p.image_url || "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=600"}" alt="${p.title}" loading="lazy">
-                        </div>
-                        <div class="content">
-                            <div class="rating">★★★★★ <span>(4.9)</span></div>
-                            <h3>${p.title || "Trending Product"}</h3>
-                            <p>${p.description || ""}</p>
-                            <div class="scarcity">⚡ Only ${Math.floor(Math.random() * 8) + 2} units left at this price</div>
-                            <div class="price-row">
-                                <div class="price">$${p.price || "29.99"}</div>
-                                <a href="${p.checkout_url || p.supplier_url || #}" target="_blank" rel="noopener" class="buy-btn">Get Deal</a>
+                el.innerHTML = data.map(p => {
+                    let buyUrl = p.checkout_url || p.supplier_url || "https://www.amazon.com/";
+                    if (buyUrl.includes("amazon.com")) {
+                        buyUrl += (buyUrl.includes("?") ? "&" : "?") + "tag=" + PRIMARY_TAG;
+                    }
+                    return `
+                        <article class="card">
+                            <div class="img-container">
+                                <img src="${p.image_url || "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=600"}" alt="${p.title}" loading="lazy">
                             </div>
-                        </div>
-                    </article>
-                `).join("");
+                            <div class="content">
+                                <div class="rating">★★★★★ <span>(4.9)</span></div>
+                                <h3>${p.title || "Trending Product"}</h3>
+                                <p>${p.description || ""}</p>
+                                <div class="price-row">
+                                    <div class="price">$${p.price || "29.99"}</div>
+                                    <a href="${buyUrl}" target="_blank" rel="noopener" class="buy-btn">View on Amazon</a>
+                                </div>
+                            </div>
+                        </article>
+                    `;
+                }).join("");
             }).catch(() => {
-                document.getElementById("catalog").innerHTML = "<p>Updating live deals catalog...</p>";
+                document.getElementById("catalog").innerHTML = "<p>Updating live Amazon catalog...</p>";
             });
     </script>
 </body>
